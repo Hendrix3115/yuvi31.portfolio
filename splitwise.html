@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delhi Trip Expense Splitter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-bottom: 50px; }
+        .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .result-item { font-weight: bold; color: #198754; }
+        .delete-btn { color: red; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container mt-4">
+    <h2 class="text-center mb-4">🚐 Delhi Trip Splitter</h2>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">Add New Expense</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Description (e.g., Metro, Food)</label>
+                <input type="text" id="desc" class="form-control" placeholder="Enter details">
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Amount (₹)</label>
+                <input type="number" id="amount" class="form-control" placeholder="0">
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Who Paid? (Select One)</label>
+                    <select id="payer" class="form-select">
+                        </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Split Among (Select Multiple)</label>
+                    <div id="beneficiaries" class="border p-2 rounded" style="max-height: 150px; overflow-y: scroll;">
+                        </div>
+                    <small class="text-muted"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"> Select All (Group Expense)</small>
+                </div>
+            </div>
+
+            <button class="btn btn-success w-100" onclick="addTransaction()">➕ Add Transaction</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-secondary text-white">Transaction History</div>
+        <div class="card-body">
+            <ul id="historyList" class="list-group list-group-flush"></ul>
+            <button class="btn btn-outline-danger mt-3 btn-sm" onclick="clearAllData()">⚠ Reset All Data</button>
+        </div>
+    </div>
+
+    <div class="card border-success">
+        <div class="card-header bg-success text-white">💰 Final Settlement (Who Pays Whom)</div>
+        <div class="card-body" id="settlementPlan">
+            <p class="text-muted text-center">Add transactions to see the split!</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. Configuration ---
+    const friends = ["Shubham", "Himanshu", "Yuvraj", "Bhupendra", "Porous", "Anup", "Chetan", "Gaurav"];
+    let transactions = JSON.parse(localStorage.getItem('delhi_trip_data')) || [];
+
+    // --- 2. Initialization ---
+    window.onload = function() {
+        populateUI();
+        renderHistory();
+        calculateSettlements();
+    };
+
+    function populateUI() {
+        const payerSelect = document.getElementById('payer');
+        const benDiv = document.getElementById('beneficiaries');
+        
+        friends.forEach((name, index) => {
+            // Fill Payer Dropdown
+            let option = document.createElement('option');
+            option.value = name;
+            option.text = name;
+            payerSelect.add(option);
+
+            // Fill Beneficiary Checkboxes
+            let checkDiv = document.createElement('div');
+            checkDiv.className = 'form-check';
+            checkDiv.innerHTML = `
+                <input class="form-check-input ben-check" type="checkbox" value="${name}" id="check${index}" checked>
+                <label class="form-check-label" for="check${index}">${name}</label>
+            `;
+            benDiv.appendChild(checkDiv);
+        });
+    }
+
+    // --- 3. Core Logic ---
+    function addTransaction() {
+        const desc = document.getElementById('desc').value;
+        const amount = parseFloat(document.getElementById('amount').value);
+        const payer = document.getElementById('payer').value;
+        
+        // Get selected beneficiaries
+        const checkboxes = document.querySelectorAll('.ben-check:checked');
+        const involved = Array.from(checkboxes).map(cb => cb.value);
+
+        if (!desc || !amount || involved.length === 0) {
+            alert("Please fill all fields properly!");
+            return;
+        }
+
+        const txn = {
+            id: Date.now(),
+            desc,
+            amount,
+            payer,
+            involved
+        };
+
+        transactions.push(txn);
+        saveAndUpdate();
+        
+        // Clear inputs
+        document.getElementById('desc').value = '';
+        document.getElementById('amount').value = '';
+    }
+
+    function deleteTxn(id) {
+        transactions = transactions.filter(t => t.id !== id);
+        saveAndUpdate();
+    }
+
+    function clearAllData() {
+        if(confirm("Are you sure? This will delete all transactions.")) {
+            transactions = [];
+            saveAndUpdate();
+        }
+    }
+
+    function saveAndUpdate() {
+        localStorage.setItem('delhi_trip_data', JSON.stringify(transactions));
+        renderHistory();
+        calculateSettlements();
+    }
+
+    // --- 4. Rendering ---
+    function renderHistory() {
+        const list = document.getElementById('historyList');
+        list.innerHTML = '';
+        transactions.forEach(t => {
+            let splitText = t.involved.length === friends.length ? "Everyone" : t.involved.join(", ");
+            let li = document.createElement('li');
+            li.className = "list-group-item d-flex justify-content-between align-items-center";
+            li.innerHTML = `
+                <div>
+                    <strong>${t.payer}</strong> paid <strong>₹${t.amount}</strong> for <small>${t.desc} (${splitText})</small>
+                </div>
+                <span class="delete-btn" onclick="deleteTxn(${t.id})">✖</span>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    // --- 5. The Algorithm (Simplify Debts) ---
+    function calculateSettlements() {
+        let balances = {};
+        friends.forEach(f => balances[f] = 0);
+
+        // Calculate Net Balance for everyone
+        transactions.forEach(t => {
+            const splitAmount = t.amount / t.involved.length;
+            
+            // Payer gets +Amount (because he is owed this back essentially)
+            // But simplified: Payer PAID X, so his balance increases. 
+            // Consumers CONSUMED X/n, so their balance decreases.
+            
+            // Let's use: Positive = Owed TO me. Negative = I OWE others.
+            balances[t.payer] += t.amount;
+            
+            t.involved.forEach(person => {
+                balances[person] -= splitAmount;
+            });
+        });
+
+        // Separate into debtors (owe money) and creditors (owed money)
+        let debtors = [];
+        let creditors = [];
+
+        for (const [person, amount] of Object.entries(balances)) {
+            if (amount < -0.01) debtors.push({ name: person, amount: amount }); // Negative
+            if (amount > 0.01) creditors.push({ name: person, amount: amount }); // Positive
+        }
+
+        // Sort to optimize matching (Greedy approach)
+        debtors.sort((a, b) => a.amount - b.amount);
+        creditors.sort((a, b) => b.amount - a.amount);
+
+        const planDiv = document.getElementById('settlementPlan');
+        planDiv.innerHTML = '';
+
+        if (debtors.length === 0 && creditors.length === 0) {
+            planDiv.innerHTML = '<p class="text-center text-muted">All settled up! No debts.</p>';
+            return;
+        }
+
+        // Match them up
+        let i = 0; // debtor index
+        let j = 0; // creditor index
+
+        while (i < debtors.length && j < creditors.length) {
+            let debtor = debtors[i];
+            let creditor = creditors[j];
+
+            // The amount to settle is the minimum of what debtor owes and creditor needs
+            let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+            
+            // Display result
+            let p = document.createElement('p');
+            p.className = "result-item";
+            p.innerHTML = `👉 ${debtor.name} pays ${creditor.name}: ₹${amount.toFixed(2)}`;
+            planDiv.appendChild(p);
+
+            // Update remaining amounts
+            debtor.amount += amount;
+            creditor.amount -= amount;
+
+            // Move indices if settled
+            if (Math.abs(debtor.amount) < 0.01) i++;
+            if (creditor.amount < 0.01) j++;
+        }
+    }
+
+    function toggleSelectAll() {
+        const checkboxes = document.querySelectorAll('.ben-check');
+        const selectAll = document.getElementById('selectAll');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    }
+</script>
+
+</body>
+</html>
