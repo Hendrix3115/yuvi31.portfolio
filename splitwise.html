@@ -2,244 +2,435 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delhi Trip Expense Splitter</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trip Expense Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background-color: #f8f9fa; padding-bottom: 50px; }
-        .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .result-item { font-weight: bold; color: #198754; }
-        .delete-btn { color: red; cursor: pointer; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f3f4f6; }
+        .hide { display: none; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .avatar {
+            width: 32px; height: 32px;
+            background: #3b82f6; color: white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 14px;
+        }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 min-h-screen pb-20">
 
-<div class="container mt-4">
-    <h2 class="text-center mb-4">🚐 Delhi Trip Splitter</h2>
+    <div id="setupScreen" class="p-6 max-w-md mx-auto mt-10">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Trip Setup</h1>
+            <p class="text-gray-500">Add everyone going on the trip</p>
+        </div>
 
-    <div class="card">
-        <div class="card-header bg-primary text-white">Add New Expense</div>
-        <div class="card-body">
-            <div class="mb-3">
-                <label class="form-label">Description (e.g., Metro, Food)</label>
-                <input type="text" id="desc" class="form-control" placeholder="Enter details">
+        <div class="glass-panel p-6 mb-6">
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="newFriendName" placeholder="Enter Name (e.g. Yuvraj)" 
+                    class="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="addFriend()" class="bg-blue-600 text-white px-4 rounded-lg font-bold">+</button>
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Amount (₹)</label>
-                <input type="number" id="amount" class="form-control" placeholder="0">
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Who Paid? (Select One)</label>
-                    <select id="payer" class="form-select">
-                        </select>
+            <div id="friendListDisplay" class="flex flex-wrap gap-2">
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Split Among (Select Multiple)</label>
-                    <div id="beneficiaries" class="border p-2 rounded" style="max-height: 150px; overflow-y: scroll;">
-                        </div>
-                    <small class="text-muted"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"> Select All (Group Expense)</small>
-                </div>
-            </div>
+        </div>
 
-            <button class="btn btn-success w-100" onclick="addTransaction()">➕ Add Transaction</button>
+        <button onclick="startApp()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg text-lg">
+            Start Trip 🚀
+        </button>
+        
+        <div class="mt-4 text-center">
+            <small class="text-gray-400">Previous session found?</small>
+            <button onclick="loadSession()" class="text-blue-500 underline text-sm">Resume Trip</button>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header bg-secondary text-white">Transaction History</div>
-        <div class="card-body">
-            <ul id="historyList" class="list-group list-group-flush"></ul>
-            <button class="btn btn-outline-danger mt-3 btn-sm" onclick="clearAllData()">⚠ Reset All Data</button>
-        </div>
-    </div>
-
-    <div class="card border-success">
-        <div class="card-header bg-success text-white">💰 Final Settlement (Who Pays Whom)</div>
-        <div class="card-body" id="settlementPlan">
-            <p class="text-muted text-center">Add transactions to see the split!</p>
-        </div>
-    </div>
-</div>
-
-<script>
-    // --- 1. Configuration ---
-    const friends = ["Shubham", "Himanshu", "Yuvraj", "Bhupendra", "Porous", "Anup", "Chetan", "Gaurav"];
-    let transactions = JSON.parse(localStorage.getItem('delhi_trip_data')) || [];
-
-    // --- 2. Initialization ---
-    window.onload = function() {
-        populateUI();
-        renderHistory();
-        calculateSettlements();
-    };
-
-    function populateUI() {
-        const payerSelect = document.getElementById('payer');
-        const benDiv = document.getElementById('beneficiaries');
+    <div id="mainApp" class="hide max-w-xl mx-auto">
         
-        friends.forEach((name, index) => {
-            // Fill Payer Dropdown
-            let option = document.createElement('option');
-            option.value = name;
-            option.text = name;
-            payerSelect.add(option);
-
-            // Fill Beneficiary Checkboxes
-            let checkDiv = document.createElement('div');
-            checkDiv.className = 'form-check';
-            checkDiv.innerHTML = `
-                <input class="form-check-input ben-check" type="checkbox" value="${name}" id="check${index}" checked>
-                <label class="form-check-label" for="check${index}">${name}</label>
-            `;
-            benDiv.appendChild(checkDiv);
-        });
-    }
-
-    // --- 3. Core Logic ---
-    function addTransaction() {
-        const desc = document.getElementById('desc').value;
-        const amount = parseFloat(document.getElementById('amount').value);
-        const payer = document.getElementById('payer').value;
-        
-        // Get selected beneficiaries
-        const checkboxes = document.querySelectorAll('.ben-check:checked');
-        const involved = Array.from(checkboxes).map(cb => cb.value);
-
-        if (!desc || !amount || involved.length === 0) {
-            alert("Please fill all fields properly!");
-            return;
-        }
-
-        const txn = {
-            id: Date.now(),
-            desc,
-            amount,
-            payer,
-            involved
-        };
-
-        transactions.push(txn);
-        saveAndUpdate();
-        
-        // Clear inputs
-        document.getElementById('desc').value = '';
-        document.getElementById('amount').value = '';
-    }
-
-    function deleteTxn(id) {
-        transactions = transactions.filter(t => t.id !== id);
-        saveAndUpdate();
-    }
-
-    function clearAllData() {
-        if(confirm("Are you sure? This will delete all transactions.")) {
-            transactions = [];
-            saveAndUpdate();
-        }
-    }
-
-    function saveAndUpdate() {
-        localStorage.setItem('delhi_trip_data', JSON.stringify(transactions));
-        renderHistory();
-        calculateSettlements();
-    }
-
-    // --- 4. Rendering ---
-    function renderHistory() {
-        const list = document.getElementById('historyList');
-        list.innerHTML = '';
-        transactions.forEach(t => {
-            let splitText = t.involved.length === friends.length ? "Everyone" : t.involved.join(", ");
-            let li = document.createElement('li');
-            li.className = "list-group-item d-flex justify-content-between align-items-center";
-            li.innerHTML = `
+        <div class="bg-blue-600 text-white p-6 rounded-b-3xl shadow-lg mb-6 sticky top-0 z-10">
+            <div class="flex justify-between items-center">
                 <div>
-                    <strong>${t.payer}</strong> paid <strong>₹${t.amount}</strong> for <small>${t.desc} (${splitText})</small>
+                    <h2 class="text-2xl font-bold">Total Spent</h2>
+                    <p class="text-blue-100 text-sm" id="groupMemberCount">0 People</p>
                 </div>
-                <span class="delete-btn" onclick="deleteTxn(${t.id})">✖</span>
+                <div class="text-right">
+                    <h2 class="text-3xl font-bold">₹<span id="totalSpentDisplay">0</span></h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-4">
+            
+            <div class="flex bg-white rounded-lg p-1 mb-6 shadow-sm">
+                <button onclick="switchTab('transactions')" id="tab-transactions" class="flex-1 py-2 rounded-md font-semibold text-sm bg-blue-100 text-blue-700">Transactions</button>
+                <button onclick="switchTab('settlement')" id="tab-settlement" class="flex-1 py-2 rounded-md font-semibold text-sm text-gray-500">Settlement</button>
+            </div>
+
+            <div id="view-transactions">
+                <div id="txnList" class="space-y-3">
+                    </div>
+                <div class="h-20"></div> </div>
+
+            <div id="view-settlement" class="hide">
+                <div class="glass-panel p-4">
+                    <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Who Pays Whom?</h3>
+                    <div id="settlementList" class="space-y-3">
+                        </div>
+                </div>
+            </div>
+
+        </div>
+
+        <button onclick="openModal()" class="fixed bottom-6 right-6 bg-blue-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-2xl z-50">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+
+    </div>
+
+    <div id="expenseModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full max-w-xl rounded-t-2xl sm:rounded-2xl p-6 h-[90vh] overflow-y-auto">
+            
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">Add Expense</h3>
+                <button onclick="closeModal()" class="text-gray-400 text-xl">✕</button>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input type="text" id="desc" class="w-full p-3 border rounded-lg bg-gray-50" placeholder="Taxi, Dinner, Hotel...">
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-3 text-gray-500">₹</span>
+                    <input type="number" id="totalAmount" class="w-full p-3 pl-8 border rounded-lg text-lg font-bold" placeholder="0">
+                </div>
+            </div>
+
+            <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm font-bold text-blue-800">Who Paid?</label>
+                    <button onclick="addPayerRow()" class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded hover:bg-blue-300">+ Split Payment</button>
+                </div>
+                <div id="payerRows" class="space-y-2">
+                    </div>
+                <div class="text-right mt-2 text-xs text-gray-500">
+                    Total Entered: ₹<span id="currentPayerTotal">0</span>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-sm font-medium text-gray-700">For Whom? (Split)</label>
+                    <button onclick="toggleAllSplit(true)" class="text-xs text-blue-600">Select All</button>
+                </div>
+                <div id="splitList" class="grid grid-cols-2 gap-2">
+                    </div>
+            </div>
+
+            <button onclick="saveTransaction()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md">
+                Save Transaction
+            </button>
+            <div class="h-10"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        let friends = [];
+        let transactions = [];
+        let appState = "setup"; // setup or app
+
+        // --- SETUP LOGIC ---
+        function addFriend() {
+            const input = document.getElementById('newFriendName');
+            const name = input.value.trim();
+            if(name && !friends.includes(name)) {
+                friends.push(name);
+                renderFriendChips();
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        function renderFriendChips() {
+            const container = document.getElementById('friendListDisplay');
+            container.innerHTML = friends.map(f => `
+                <span class="bg-white border px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                    ${f} <button onclick="removeFriend('${f}')" class="text-red-500">×</button>
+                </span>
+            `).join('');
+        }
+
+        function removeFriend(name) {
+            friends = friends.filter(f => f !== name);
+            renderFriendChips();
+        }
+
+        function startApp() {
+            if(friends.length < 2) return alert("Add at least 2 friends!");
+            document.getElementById('setupScreen').classList.add('hide');
+            document.getElementById('mainApp').classList.remove('hide');
+            document.getElementById('groupMemberCount').innerText = `${friends.length} Friends`;
+            saveToLocal();
+            renderTransactions();
+            calculateSettlement();
+        }
+
+        function loadSession() {
+            const stored = localStorage.getItem('trip_data_v2');
+            if(stored) {
+                const data = JSON.parse(stored);
+                friends = data.friends;
+                transactions = data.transactions;
+                startApp();
+            } else {
+                alert("No previous trip found.");
+            }
+        }
+
+        function saveToLocal() {
+            localStorage.setItem('trip_data_v2', JSON.stringify({ friends, transactions }));
+        }
+
+        // --- MODAL & MULTI-PAYER LOGIC ---
+        function openModal() {
+            document.getElementById('expenseModal').classList.remove('hidden');
+            
+            // Initialize Payers (Default: First friend pays full amount)
+            const payerContainer = document.getElementById('payerRows');
+            payerContainer.innerHTML = ''; 
+            addPayerRow(); // Add first row
+
+            // Initialize Split List
+            const splitContainer = document.getElementById('splitList');
+            splitContainer.innerHTML = friends.map((f, i) => `
+                <label class="flex items-center space-x-2 bg-gray-50 p-2 rounded border cursor-pointer">
+                    <input type="checkbox" class="split-check w-4 h-4 text-blue-600" value="${f}" checked>
+                    <span class="text-sm">${f}</span>
+                </label>
+            `).join('');
+        }
+
+        function closeModal() {
+            document.getElementById('expenseModal').classList.add('hidden');
+        }
+
+        function addPayerRow() {
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center";
+            
+            // Create Select Dropdown
+            let options = friends.map(f => `<option value="${f}">${f}</option>`).join('');
+            
+            div.innerHTML = `
+                <select class="payer-select flex-1 p-2 border rounded bg-white text-sm">
+                    ${options}
+                </select>
+                <input type="number" class="payer-amount w-24 p-2 border rounded text-sm" placeholder="₹" oninput="updatePayerTotal()">
+                <button onclick="this.parentElement.remove()" class="text-red-400 px-2">×</button>
             `;
-            list.appendChild(li);
-        });
-    }
+            document.getElementById('payerRows').appendChild(div);
+        }
 
-    // --- 5. The Algorithm (Simplify Debts) ---
-    function calculateSettlements() {
-        let balances = {};
-        friends.forEach(f => balances[f] = 0);
+        function updatePayerTotal() {
+            const inputs = document.querySelectorAll('.payer-amount');
+            let total = 0;
+            inputs.forEach(inp => total += parseFloat(inp.value || 0));
+            document.getElementById('currentPayerTotal').innerText = total;
+        }
 
-        // Calculate Net Balance for everyone
-        transactions.forEach(t => {
-            const splitAmount = t.amount / t.involved.length;
+        function saveTransaction() {
+            const desc = document.getElementById('desc').value;
+            const total = parseFloat(document.getElementById('totalAmount').value);
             
-            // Payer gets +Amount (because he is owed this back essentially)
-            // But simplified: Payer PAID X, so his balance increases. 
-            // Consumers CONSUMED X/n, so their balance decreases.
+            if(!desc || !total) return alert("Please fill description and amount");
+
+            // 1. Gather Payers
+            let payers = [];
+            let paidSum = 0;
+            const payerRows = document.querySelectorAll('#payerRows > div');
             
-            // Let's use: Positive = Owed TO me. Negative = I OWE others.
-            balances[t.payer] += t.amount;
-            
-            t.involved.forEach(person => {
-                balances[person] -= splitAmount;
+            payerRows.forEach(row => {
+                const name = row.querySelector('.payer-select').value;
+                const amt = parseFloat(row.querySelector('.payer-amount').value || 0);
+                if(amt > 0) {
+                    payers.push({ name, amount: amt });
+                    paidSum += amt;
+                }
             });
-        });
 
-        // Separate into debtors (owe money) and creditors (owed money)
-        let debtors = [];
-        let creditors = [];
+            // Validation: Does paid amount match total?
+            if(Math.abs(paidSum - total) > 1) { // Allowing 1 rupee margin for easy typing
+                return alert(`Math error! Total bill is ${total}, but you entered payments totaling ${paidSum}.`);
+            }
 
-        for (const [person, amount] of Object.entries(balances)) {
-            if (amount < -0.01) debtors.push({ name: person, amount: amount }); // Negative
-            if (amount > 0.01) creditors.push({ name: person, amount: amount }); // Positive
-        }
+            // 2. Gather Split Consumers
+            const consumers = Array.from(document.querySelectorAll('.split-check:checked')).map(c => c.value);
+            if(consumers.length === 0) return alert("Select at least one person to split with.");
 
-        // Sort to optimize matching (Greedy approach)
-        debtors.sort((a, b) => a.amount - b.amount);
-        creditors.sort((a, b) => b.amount - a.amount);
+            // 3. Save
+            transactions.unshift({
+                id: Date.now(),
+                desc,
+                total,
+                payers, // Array of {name, amount}
+                consumers, // Array of names
+                date: new Date().toLocaleDateString()
+            });
 
-        const planDiv = document.getElementById('settlementPlan');
-        planDiv.innerHTML = '';
-
-        if (debtors.length === 0 && creditors.length === 0) {
-            planDiv.innerHTML = '<p class="text-center text-muted">All settled up! No debts.</p>';
-            return;
-        }
-
-        // Match them up
-        let i = 0; // debtor index
-        let j = 0; // creditor index
-
-        while (i < debtors.length && j < creditors.length) {
-            let debtor = debtors[i];
-            let creditor = creditors[j];
-
-            // The amount to settle is the minimum of what debtor owes and creditor needs
-            let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+            saveToLocal();
+            closeModal();
+            renderTransactions();
+            calculateSettlement();
             
-            // Display result
-            let p = document.createElement('p');
-            p.className = "result-item";
-            p.innerHTML = `👉 ${debtor.name} pays ${creditor.name}: ₹${amount.toFixed(2)}`;
-            planDiv.appendChild(p);
-
-            // Update remaining amounts
-            debtor.amount += amount;
-            creditor.amount -= amount;
-
-            // Move indices if settled
-            if (Math.abs(debtor.amount) < 0.01) i++;
-            if (creditor.amount < 0.01) j++;
+            // Clear inputs
+            document.getElementById('desc').value = '';
+            document.getElementById('totalAmount').value = '';
         }
-    }
 
-    function toggleSelectAll() {
-        const checkboxes = document.querySelectorAll('.ben-check');
-        const selectAll = document.getElementById('selectAll');
-        checkboxes.forEach(cb => cb.checked = selectAll.checked);
-    }
-</script>
+        // --- RENDERING ---
+        function renderTransactions() {
+            const list = document.getElementById('txnList');
+            let grandTotal = 0;
+            
+            list.innerHTML = transactions.map(t => {
+                grandTotal += t.total;
+                
+                // Format Payer String (e.g., "Yuvraj (200), Shubham (40)")
+                let payerText = t.payers.map(p => `${p.name} paid ₹${p.amount}`).join(', ');
+                
+                // Format Consumer String
+                let consumerText = t.consumers.length === friends.length ? "Everyone" : `${t.consumers.length} people`;
 
+                return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-bold text-gray-800">${t.desc}</h4>
+                        <span class="font-bold text-blue-600">₹${t.total}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mb-2">
+                        <i class="fa-solid fa-calendar mr-1"></i> ${t.date}
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded text-xs text-gray-600 space-y-1">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-wallet text-green-500"></i>
+                            <span>${payerText}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-users text-blue-500"></i>
+                            <span>Split: ${consumerText}</span>
+                        </div>
+                    </div>
+                    <button onclick="deleteTxn(${t.id})" class="absolute top-4 right-[-10px] bg-red-100 text-red-500 p-1 rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 hover:opacity-100 transition-opacity" style="opacity: 0.3">✕</button>
+                </div>`;
+            }).join('');
+
+            document.getElementById('totalSpentDisplay').innerText = grandTotal;
+        }
+
+        function deleteTxn(id) {
+            if(confirm("Delete this transaction?")) {
+                transactions = transactions.filter(t => t.id !== id);
+                saveToLocal();
+                renderTransactions();
+                calculateSettlement();
+            }
+        }
+
+        // --- ALGORITHM ---
+        function calculateSettlement() {
+            let balances = {};
+            friends.forEach(f => balances[f] = 0);
+
+            transactions.forEach(t => {
+                const costPerPerson = t.total / t.consumers.length;
+
+                // 1. Add Credit to Payers
+                t.payers.forEach(p => {
+                    balances[p.name] += p.amount;
+                });
+
+                // 2. Deduct Debit from Consumers
+                t.consumers.forEach(person => {
+                    balances[person] -= costPerPerson;
+                });
+            });
+
+            // Separate Debtors (-) and Creditors (+)
+            let debtors = [];
+            let creditors = [];
+            
+            for (const [name, amount] of Object.entries(balances)) {
+                if (amount < -0.1) debtors.push({ name, amount });
+                if (amount > 0.1) creditors.push({ name, amount });
+            }
+
+            debtors.sort((a, b) => a.amount - b.amount); // Ascending (Largest debt first)
+            creditors.sort((a, b) => b.amount - a.amount); // Descending (Largest credit first)
+
+            const list = document.getElementById('settlementList');
+            list.innerHTML = '';
+
+            if(debtors.length === 0) {
+                list.innerHTML = `<div class="text-center text-gray-400 py-4">All settled up! 🎉</div>`;
+                return;
+            }
+
+            let i = 0, j = 0;
+            while (i < debtors.length && j < creditors.length) {
+                let debtor = debtors[i];
+                let creditor = creditors[j];
+
+                // The amount to pay is the minimum of what's owed vs what's needed
+                let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+
+                // Render Item
+                list.innerHTML += `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-l-4 border-green-500">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-gray-700">${debtor.name}</span>
+                            <i class="fa-solid fa-arrow-right text-gray-400 text-xs"></i>
+                            <span class="font-bold text-gray-700">${creditor.name}</span>
+                        </div>
+                        <span class="font-bold text-green-600">₹${Math.ceil(amount)}</span>
+                    </div>
+                `;
+
+                // Adjust balances
+                debtor.amount += amount;
+                creditor.amount -= amount;
+
+                if (Math.abs(debtor.amount) < 0.1) i++;
+                if (creditor.amount < 0.1) j++;
+            }
+        }
+
+        function switchTab(tab) {
+            if(tab === 'transactions') {
+                document.getElementById('view-transactions').classList.remove('hide');
+                document.getElementById('view-settlement').classList.add('hide');
+                document.getElementById('tab-transactions').classList.add('bg-blue-100', 'text-blue-700');
+                document.getElementById('tab-transactions').classList.remove('text-gray-500');
+                document.getElementById('tab-settlement').classList.remove('bg-blue-100', 'text-blue-700');
+                document.getElementById('tab-settlement').classList.add('text-gray-500');
+            } else {
+                document.getElementById('view-transactions').classList.add('hide');
+                document.getElementById('view-settlement').classList.remove('hide');
+                document.getElementById('tab-settlement').classList.add('bg-blue-100', 'text-blue-700');
+                document.getElementById('tab-settlement').classList.remove('text-gray-500');
+                document.getElementById('tab-transactions').classList.remove('bg-blue-100', 'text-blue-700');
+                document.getElementById('tab-transactions').classList.add('text-gray-500');
+            }
+        }
+    </script>
 </body>
 </html>
