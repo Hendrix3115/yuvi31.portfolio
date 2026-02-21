@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIT Splitter | Bill Divider</title>
+    <style>
+        :root { --primary: #5bc0de; --dark: #2c3e50; --success: #27ae60; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; color: var(--dark); margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: var(--primary); }
+        .input-group { margin-bottom: 15px; display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-add { background: var(--primary); color: white; }
+        .btn-calc { background: var(--success); color: white; width: 100%; margin-top: 10px; }
+        .list { margin-top: 20px; }
+        .item { background: #f9f9f9; padding: 10px; margin-bottom: 5px; border-radius: 5px; display: flex; justify-content: space-between; border-left: 5px solid var(--primary); }
+        .result-box { margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📊 NIT Bill Splitter</h2>
+    <p style="text-align: center; font-size: 14px;">Perfect for hostel room expenses</p>
+
+    <div class="input-group">
+        <input type="text" id="friendName" placeholder="Enter friend's name">
+        <button class="btn-add" onclick="addFriend()">Add</button>
+    </div>
+    <div id="friendsList" class="list"></div>
+
+    <hr>
+
+    <div class="input-group">
+        <input type="number" id="totalAmount" placeholder="Total bill amount (₹)">
+        <button class="btn-calc" onclick="calculateSplit()">Split Bill</button>
+    </div>
+
+    <div id="resultBox" class="result-box">
+        <h4 style="margin-top:0;">Results:</h4>
+        <div id="splitResults"></div>
+    </div>
+</div>
+
+<script>
+    let friends = [];
+
+    function addFriend() {
+        const nameInput = document.getElementById('friendName');
+        const name = nameInput.value.trim();
+        if (name && !friends.includes(name)) {
+            friends.push(name);
+            updateList();
+            nameInput.value = '';
+        }
+    }
+
+    function updateList() {
+        const list = document.getElementById('friendsList');
+        list.innerHTML = friends.map(f => `<div class="item"><span>${f}</span><span style="color:red; cursor:pointer;" onclick="removeFriend('${f}')">✕</span></div>`).join('');
+    }
+
+    function removeFriend(name) {
+        friends = friends.filter(f => f !== name);
+        updateList();
+    }
+
+    function calculateSplit() {
+        const amount = parseFloat(document.getElementById('totalAmount').value);
+        const resultBox = document.getElementById('resultBox');
+        const splitResults = document.getElementById('splitResults');
+
+        if (friends.length === 0 || isNaN(amount)) {
+            alert("Please add friends and an amount!");
+            return;
+        }
+
+        const share = (amount / friends.length).toFixed(2);
+        resultBox.style.display = 'block';
+        splitResults.innerHTML = `
+            <p><strong>Total Amount:</strong> ₹${amount}</p>
+            <p><strong>Each person pays:</strong> ₹${share}</p>
+            <ul style="padding-left: 20px;">
+                ${friends.map(f => `<li>${f} owes ₹${share}</li>`).join('')}
+            </ul>
+        `;
+    }
+</script>
+
+</body>
+</html>
